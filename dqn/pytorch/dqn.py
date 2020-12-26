@@ -1,15 +1,34 @@
 import argparse
-import gym
-import numpy as np
 import os
 import random
-import tensorflow as tf
 from collections import namedtuple, deque
-from tensorflow.keras.layers import Dense, Input, Activation
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
+
+import gym
+import numpy as np
+import torch
+import tensorflow as tf
+from torch.nn import Module, Linear, ReLU, Sequential
+from torch.optim import Adam
 
 sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
+
+
+def l2_regularization(kernel):
+    return torch.norm(kernel, p=2)
+
+
+class _DQN(Module):
+    def __init__(self, n_states, n_actions):
+        super(_DQN, self).__init__()
+        self.lin1 = Sequential(Linear(in_features=n_states, out_features=16), ReLU())
+        self.lin2 = Sequential(Linear(in_features=16, out_features=24), ReLU())
+        self.final_lin = Linear(in_features=24, out_features=n_actions)
+
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.lin2(x)
+        output = self.final_lin(x)
+        return output
 
 
 class DQN:
@@ -19,25 +38,13 @@ class DQN:
         self.epsilon = 0.1
         self.min_epsilon = 0.01
         self.n_actions = n_actions
-        self.n_states = n_states
+        self.states = n_states
         self.lr = 0.001
         self.gamma = 0.99
         self.batch_size = 64
         self.batch_indices = np.array([i for i in range(64)])
-        # self.batch_indices = self.batch_indices[:, np.newaxis]
-        self.target_network = self.define_model()
-        self.main_network = self.define_model()
-
-    def define_model(self):
-        state = Input(self.n_states)
-        x = Dense(16, kernel_initializer='he_uniform')(state)
-        x = Activation("relu")(x)
-        x = Dense(24, kernel_initializer='he_uniform')(x)
-        x = Activation("relu")(x)
-        q = Dense(self.n_actions, kernel_initializer='he_uniform', kernel_regularizer="l2")(x)
-        model = Model(state, q)
-        model.compile(loss="mse", optimizer=Adam(lr=self.lr))
-        return model
+        self.target_network = _DQN(n_states=n_states, n_actions=n_actions)
+        self.main_network = _DQN(n_states=n_states, n_actions=n_actions)
 
     def get_action(self, state):
         # e-greedy decision making
@@ -47,15 +54,15 @@ class DQN:
             action = np.random.choice(self.n_actions)
         # exploitation
         else:
-            q = self.target_network.predict(state)
+            q = self.target_network(state)
             action = np.argmax(q)
         return action
 
     def train(self, x_batch):
-        s_currs = np.zeros((self.batch_size, self.n_states))
+        s_currs = np.zeros((self.batch_size, self.states))
         a_currs = np.zeros((self.batch_size, 1))
         r = np.zeros((self.batch_size, 1))
-        s_nexts = np.zeros((self.batch_size, self.n_states))
+        s_nexts = np.zeros((self.batch_size, self.states))
         dones = np.zeros((self.batch_size,))
 
         for batch in range(self.batch_size):
@@ -66,7 +73,7 @@ class DQN:
             dones[batch] = x_batch[batch].done
 
         target = self.main_network.predict(s_currs)
-        max_qs = np.amax(a=self.target_network.predict(s_nexts), axis=1)
+        max_qs = np.amax(a=self.target_network.predict(s_nexts), axis=1)  # find max along an axis
         max_qs = max_qs[..., np.newaxis]
         a_indices = a_currs.astype(np.int)
         target[self.batch_indices, np.squeeze(a_indices)] = np.squeeze(r + self.gamma * (max_qs))
@@ -79,7 +86,7 @@ class DQN:
         self.main_network.train_on_batch(s_currs, target)
 
     def update_weights(self):
-        self.target_network.set_weights(self.main_network.get_weights())
+        self.target_network.load_state_dict(self.main_network.state_dict())
 
 
 def main(episodes, exp_name):
