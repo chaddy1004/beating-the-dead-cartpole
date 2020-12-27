@@ -54,16 +54,20 @@ class DQN:
             action = np.random.choice(self.n_actions)
         # exploitation
         else:
-            q = self.target_network(state)
-            action = np.argmax(q)
+            q = self.target_network(state.float())
+            q_np = q.detach().cpu().numpy()
+            action = np.argmax(q_np)
         return action
 
+    def train_on_batch(self, network, states, targets):
+        pass
+
     def train(self, x_batch):
-        s_currs = np.zeros((self.batch_size, self.states))
-        a_currs = np.zeros((self.batch_size, 1))
-        r = np.zeros((self.batch_size, 1))
-        s_nexts = np.zeros((self.batch_size, self.states))
-        dones = np.zeros((self.batch_size,))
+        s_currs = torch.zeros((self.batch_size, self.states))
+        a_currs = torch.zeros((self.batch_size, 1))
+        r = torch.zeros((self.batch_size, 1))
+        s_nexts = torch.zeros((self.batch_size, self.states))
+        dones = torch.zeros((self.batch_size,))
 
         for batch in range(self.batch_size):
             s_currs[batch] = x_batch[batch].s_curr
@@ -72,21 +76,31 @@ class DQN:
             s_nexts[batch] = x_batch[batch].s_next
             dones[batch] = x_batch[batch].done
 
-        target = self.main_network.predict(s_currs)
-        max_qs = np.amax(a=self.target_network.predict(s_nexts), axis=1)  # find max along an axis
+        # s_currs = torch.from_numpy(s_currs)
+        # a_currs = torch.from_numpy(a_currs)
+        # r = torch.from_numpy(r)
+        # s_nexts = torch.from_numpy(s_nexts)
+        # dones = torch.from_numpy(dones)
+
+        target = self.main_network(s_currs)
+        # Easier to do the update rule using numpy rules...
+        predicts = self.target_network(s_nexts)
+        max_qs = torch.argmax(input=predicts, dim=1)  # find max along an axis
         max_qs = max_qs[..., np.newaxis]
-        a_indices = a_currs.astype(np.int)
-        target[self.batch_indices, np.squeeze(a_indices)] = np.squeeze(r + self.gamma * (max_qs))
+        a_indices = a_currs.long()
+        target[self.batch_indices, torch.squeeze(a_indices)] = torch.squeeze(r + self.gamma * (max_qs))
 
         done_indices = np.argwhere(dones)
         if done_indices.shape[0] > 0:
-            done_indices = np.squeeze(np.argwhere(dones))
-            target[done_indices, np.squeeze(a_indices[done_indices])] = np.squeeze(r[done_indices])
+            done_indices = torch.squeeze(dones.nonzero())
+            target[done_indices, torch.squeeze(a_indices[done_indices])] = torch.squeeze(r[done_indices])
 
-        self.main_network.train_on_batch(s_currs, target)
+        self.train_on_batch(self.main_network, s_currs, target)
+
 
     def update_weights(self):
         self.target_network.load_state_dict(self.main_network.state_dict())
+
 
 
 def main(episodes, exp_name):
@@ -101,6 +115,7 @@ def main(episodes, exp_name):
     for ep in range(episodes):
         s_curr = env.reset()
         s_curr = np.reshape(s_curr, (1, states))
+        s_curr = s_curr.astype(np.float32)
         done = False
         score = 0
         agent.update_weights()
@@ -108,16 +123,18 @@ def main(episodes, exp_name):
             agent.epsilon *= 0.99
         while not done:
             # env.render()
-            a_curr = agent.get_action(s_curr)
+            s_curr_tensor = torch.from_numpy(s_curr)
+            a_curr = agent.get_action(s_curr_tensor)
             s_next, r, done, _ = env.step(a_curr)
+            s_next_tensor = torch.from_numpy(s_next)
             s_next = np.reshape(s_next, (1, states))
             r = r if not done or r > 499 else -100
             sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
 
-            sample.s_curr = s_curr
+            sample.s_curr = s_curr_tensor
             sample.a_curr = a_curr
             sample.reward = r
-            sample.s_next = s_next
+            sample.s_next = s_next_tensor
             sample.done = done
 
             if len(agent.experience_replay) < agent.replay_size:

@@ -59,7 +59,7 @@ class DQN:
         dones = np.zeros((self.batch_size,))
 
         for batch in range(self.batch_size):
-            s_currs[batch] = x_batch[batch].s_curr
+            s_currs[batch] =  x_batch[batch].s_curr
             a_currs[batch] = x_batch[batch].a_curr
             r[batch] = x_batch[batch].reward
             s_nexts[batch] = x_batch[batch].s_next
