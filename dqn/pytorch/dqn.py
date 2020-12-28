@@ -12,6 +12,8 @@ from torch.optim import Adam
 
 sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
 
+mse_loss_function = torch.nn.MSELoss()
+
 
 def l2_regularization(kernel):
     return torch.norm(kernel, p=2)
@@ -45,6 +47,7 @@ class DQN:
         self.batch_indices = np.array([i for i in range(64)])
         self.target_network = _DQN(n_states=n_states, n_actions=n_actions)
         self.main_network = _DQN(n_states=n_states, n_actions=n_actions)
+        self.optim = torch.optim.Adam(params=self.main_network.parameters(), lr=self.lr)
 
     def get_action(self, state):
         # e-greedy decision making
@@ -59,8 +62,15 @@ class DQN:
             action = np.argmax(q_np)
         return action
 
-    def train_on_batch(self, network, states, targets):
-        pass
+    def train_on_batch(self, states, targets):
+        self.optim.zero_grad()
+        predict = self.main_network(states)
+        loss = mse_loss_function(input=predict,
+                                 target=targets)  # + l2_regularization( kernel=self.main_network.final_lin.weight)
+
+        loss.backward()
+        self.optim.step()
+        return
 
     def train(self, x_batch):
         s_currs = torch.zeros((self.batch_size, self.states))
@@ -95,12 +105,10 @@ class DQN:
             done_indices = torch.squeeze(dones.nonzero())
             target[done_indices, torch.squeeze(a_indices[done_indices])] = torch.squeeze(r[done_indices])
 
-        self.train_on_batch(self.main_network, s_currs, target)
-
+        self.train_on_batch(s_currs, target)
 
     def update_weights(self):
         self.target_network.load_state_dict(self.main_network.state_dict())
-
 
 
 def main(episodes, exp_name):
