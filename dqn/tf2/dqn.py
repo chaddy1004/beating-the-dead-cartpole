@@ -59,7 +59,7 @@ class DQN:
         dones = np.zeros((self.batch_size,))
 
         for batch in range(self.batch_size):
-            s_currs[batch] =  x_batch[batch].s_curr
+            s_currs[batch] = x_batch[batch].s_curr
             a_currs[batch] = x_batch[batch].a_curr
             r[batch] = x_batch[batch].reward
             s_nexts[batch] = x_batch[batch].s_next
@@ -96,7 +96,7 @@ def main(episodes, exp_name):
         s_curr = np.reshape(s_curr, (1, states))
         done = False
         score = 0
-        agent.update_weights()
+        agent.update_weights()  # update weight every time an episode ends
         if agent.epsilon > agent.min_epsilon:
             agent.epsilon *= 0.99
         while not done:

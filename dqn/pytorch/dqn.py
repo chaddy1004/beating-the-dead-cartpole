@@ -67,7 +67,6 @@ class DQN:
         predict = self.main_network(states)
         loss = mse_loss_function(input=predict,
                                  target=targets)  # + l2_regularization( kernel=self.main_network.final_lin.weight)
-
         loss.backward()
         self.optim.step()
         return
@@ -93,11 +92,11 @@ class DQN:
         # dones = torch.from_numpy(dones)
 
         target = self.main_network(s_currs)
-        # Easier to do the update rule using numpy rules...
         predicts = self.target_network(s_nexts)
-        max_qs = torch.argmax(input=predicts, dim=1)  # find max along an axis
-        max_qs = max_qs[..., np.newaxis]
+        max_qs = torch.max(input=predicts, dim=1).values  # find max along an axis
+        max_qs = max_qs.unsqueeze(-1)
         a_indices = a_currs.long()
+        a = torch.squeeze(r + self.gamma * (max_qs))
         target[self.batch_indices, torch.squeeze(a_indices)] = torch.squeeze(r + self.gamma * (max_qs))
 
         done_indices = np.argwhere(dones)
@@ -126,9 +125,7 @@ def main(episodes, exp_name):
         s_curr = s_curr.astype(np.float32)
         done = False
         score = 0
-        agent.update_weights()
-        if agent.epsilon > agent.min_epsilon:
-            agent.epsilon *= 0.99
+        agent.update_weights()  # update weight every time an episode ends
         while not done:
             # env.render()
             s_curr_tensor = torch.from_numpy(s_curr)
