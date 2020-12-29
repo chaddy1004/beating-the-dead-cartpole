@@ -49,17 +49,23 @@ class DQN:
         self.main_network = _DQN(n_states=n_states, n_actions=n_actions)
         self.optim = torch.optim.Adam(params=self.main_network.parameters(), lr=self.lr)
 
-    def get_action(self, state):
+    def get_action(self, state, test=False):
         # e-greedy decision making
         decision = np.random.rand()
         # exploration
-        if decision < self.epsilon:
-            action = np.random.choice(self.n_actions)
-        # exploitation
+        if not test:
+            if decision < self.epsilon:
+                action = np.random.choice(self.n_actions)
+            # exploitation
+            else:
+                q = self.main_network(state.float())
+                q_np = q.detach().cpu().numpy()
+                action = np.argmax(q_np)
         else:
-            q = self.target_network(state.float())
+            q = self.main_network(state.float())
             q_np = q.detach().cpu().numpy()
             action = np.argmax(q_np)
+
         return action
 
     def train_on_batch(self, states, targets):
@@ -85,18 +91,11 @@ class DQN:
             s_nexts[batch] = x_batch[batch].s_next
             dones[batch] = x_batch[batch].done
 
-        # s_currs = torch.from_numpy(s_currs)
-        # a_currs = torch.from_numpy(a_currs)
-        # r = torch.from_numpy(r)
-        # s_nexts = torch.from_numpy(s_nexts)
-        # dones = torch.from_numpy(dones)
-
         target = self.main_network(s_currs)
         predicts = self.target_network(s_nexts)
         max_qs = torch.max(input=predicts, dim=1).values  # find max along an axis
         max_qs = max_qs.unsqueeze(-1)
         a_indices = a_currs.long()
-        a = torch.squeeze(r + self.gamma * (max_qs))
         target[self.batch_indices, torch.squeeze(a_indices)] = torch.squeeze(r + self.gamma * (max_qs))
 
         done_indices = np.argwhere(dones)
@@ -127,7 +126,8 @@ def main(episodes, exp_name):
         score = 0
         agent.update_weights()  # update weight every time an episode ends
         while not done:
-            # env.render()
+            # if len(agent.experience_replay) == agent.replay_size:
+            #     env.render()
             s_curr_tensor = torch.from_numpy(s_curr)
             a_curr = agent.get_action(s_curr_tensor)
             s_next, r, done, _ = env.step(a_curr)
@@ -162,11 +162,31 @@ def main(episodes, exp_name):
                 with writer.as_default():
                     tf.summary.scalar("reward", r, ep)
                     tf.summary.scalar("score", score, ep)
+    return agent
+
+
+def env_with_render(agent):
+    done = False
+    env = gym.make('CartPole-v1')
+    score = 0
+    s_curr = env.reset()
+    while True:
+        if done:
+            score = 0
+            s_curr = env.reset()
+        env.render()
+        s_curr_tensor = torch.from_numpy(s_curr)
+        a_curr = agent.get_action(s_curr_tensor, test=True)
+        s_next, r, done, _ = env.step(a_curr)
+        s_curr = s_next
+        score += r
+        print(score)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="DQN_tf2", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=3000, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=200, help="number of episodes to run")
     args = vars(ap.parse_args())
-    main(episodes=args["episodes"], exp_name=args["exp_name"])
+    trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
+    env_with_render(agent=trained_agent)
