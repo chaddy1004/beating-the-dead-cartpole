@@ -39,16 +39,21 @@ class DQN:
         model.compile(loss="mse", optimizer=Adam(lr=self.lr))
         return model
 
-    def get_action(self, state):
+    def get_action(self, state, test = False):
         # e-greedy decision making
-        decision = np.random.rand()
-        # exploration
-        if decision < self.epsilon:
-            action = np.random.choice(self.n_actions)
-        # exploitation
+        if not test:
+            decision = np.random.rand()
+            # exploration
+            if decision < self.epsilon:
+                action = np.random.choice(self.n_actions)
+            # exploitation
+            else:
+                q = self.main_network.predict(state)
+                action = np.argmax(q)
         else:
-            q = self.target_network.predict(state)
+            q = self.main_network.predict(state)
             action = np.argmax(q)
+
         return action
 
     def train(self, x_batch):
@@ -133,11 +138,30 @@ def main(episodes, exp_name):
                 with writer.as_default():
                     tf.summary.scalar("reward", r, ep)
                     tf.summary.scalar("score", score, ep)
+    return agent
 
+def env_with_render(agent):
+    done = False
+    env = gym.make('CartPole-v1')
+    score = 0
+    n_states = env.observation_space.shape[0]  # shape returns a tuple
+    s_curr = env.reset()
+    while True:
+        if done:
+            score = 0
+            s_curr = env.reset()
+        env.render()
+        s_curr = np.reshape(s_curr, (1, n_states))
+        a_curr = agent.get_action(s_curr, test=True)
+        s_next, r, done, _ = env.step(a_curr)
+        s_curr = s_next
+        score += r
+        print(score)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="DQN_tf2", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=3000, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=200, help="number of episodes to run")
     args = vars(ap.parse_args())
-    main(episodes=args["episodes"], exp_name=args["exp_name"])
+    trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
+    env_with_render(agent=trained_agent)
