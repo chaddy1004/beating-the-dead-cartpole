@@ -27,13 +27,31 @@ class Network(Module):
 
 class Reinforce:
     def __init__(self, n_states, n_actions):
+        self.states = [] # logging the states
+        self.actions = [] # logging the ACTUAL action that was performed at t
+        self.model_outputs = [] # logging PI(a|s) that was outputted at t
+        self.rewards = [] # logging the rewards that go from t_i -> t_{i+1}
         self.n_actions = n_actions
         self.states = n_states
         self.lr = 0.001
         self.batch_size = 64
+        self.gamma = 0.99
         self.batch_indices = np.array([i for i in range(64)])
         self.policy_network = Network(n_states=n_states, n_actions=n_actions)
-        self.optim = Adam(params=self.main_network.parameters(), lr=self.lr)
+        self.optim = Adam(params=self.policy_network.parameters(), lr=self.lr)
+
+    def calculate_G(self):
+        T = len(self.rewards)
+        discounted_rewards = [0 for _ in range(T)] # [G0, G2, G3, ... G_{T-1}]]
+        last_index = T-1
+        G_tp1 = 0 # G_{t+1}
+        for i, r in reversed(enumerate(reversed(self.rewards[:-1]))):
+            # starting from {T-1}, counting down to to 0 (Given the episode started at 0 and ended at T-1)
+            curr_index = last_index - i
+            G_t = r + self.gamma*G_tp1
+            discounted_rewards[curr_index] = G_t
+            G_tp1 = G_t # current G is the future G for the next iteration lol
+        return discounted_rewards
 
     def get_action(self, state, test=False):
         pass
