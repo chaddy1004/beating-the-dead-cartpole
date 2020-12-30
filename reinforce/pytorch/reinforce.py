@@ -27,10 +27,10 @@ class Network(Module):
 
 class Reinforce:
     def __init__(self, n_states, n_actions):
-        self.states = [] # logging the states
-        self.actions = [] # logging the ACTUAL action that was performed at t
-        self.model_outputs = [] # logging PI(a|s) that was outputted at t
-        self.rewards = [] # logging the rewards that go from t_i -> t_{i+1}
+        self.states = []  # logging the states
+        self.actions = []  # logging the ACTUAL action that was performed at t
+        self.model_outputs = []  # logging PI(a|s) that was outputted at t
+        self.rewards = []  # logging the rewards that go from t_i -> t_{i+1}
         self.n_actions = n_actions
         self.states = n_states
         self.lr = 0.001
@@ -42,19 +42,21 @@ class Reinforce:
 
     def calculate_G(self):
         T = len(self.rewards)
-        discounted_rewards = [0 for _ in range(T)] # [G0, G2, G3, ... G_{T-1}]]
-        last_index = T-1
-        G_tp1 = 0 # G_{t+1}
-        for i, r in reversed(enumerate(reversed(self.rewards[:-1]))):
+        discounted_rewards = [0 for _ in range(T)]  # [G0, G2, G3, ... G_{T-1}]]
+        last_index = T - 1
+        G_tp1 = 0  # G_{t+1}
+        for i, r in enumerate(reversed(self.rewards[:-1])):
             # starting from {T-1}, counting down to to 0 (Given the episode started at 0 and ended at T-1)
             curr_index = last_index - i
-            G_t = r + self.gamma*G_tp1
+            G_t = r + self.gamma * G_tp1
             discounted_rewards[curr_index] = G_t
-            G_tp1 = G_t # current G is the future G for the next iteration lol
+            G_tp1 = G_t  # current G is the future G for the next iteration lol
         return discounted_rewards
 
-    def get_action(self, state, test=False):
-        pass
+    def get_action(self, state):
+        action_probs = self.policy_network(state)
+        action_probs_np = action_probs.detach().cpu().numpy()
+        return np.random.choice(self.n_actions, 1, p=action_probs_np)
 
     def train_on_batch(self, states, targets):
         self.optim.zero_grad()
