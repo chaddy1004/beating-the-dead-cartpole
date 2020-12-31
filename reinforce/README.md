@@ -4,10 +4,9 @@ REINFORCE is one of the simplest algorithm for policy gradient methods.
 
 Policy Gradient (PG) methods all root from the following main equation:
 
-<img src="https://render.githubusercontent.com/render/math?math=\nabla_{theta} = Q^{\pi](s,a)\pi_{\theta}(a|s)">
+$\nabla_{theta} = Q^{\pi](s,a)\pi_{\theta}(a|s)$
 
-
-where different PG methods are (usually) distinguished by how the value, <img src="https://render.githubusercontent.com/render/math?math=$Q^{\pi](s,a)$ "> is calculated.
+where different PG methods are (usually) distinguished by how the value, $Q^{\pi](s,a)$ is calculated.
 
 REINFORCE approximates that value using Monte-Carlo approach, where the return value, G_t is estimated through the 
 trajectory obtained in each episode.
