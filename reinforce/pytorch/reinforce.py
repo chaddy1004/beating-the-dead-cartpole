@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import tensorflow as tf
 from torch.nn import Module, Linear, ReLU, Sequential, Softmax
+from torch.nn import functional as F
 from torch.optim import Adam
 
 
@@ -50,13 +51,17 @@ class Reinforce:
         discounted_rewards = [0 for _ in range(T)]  # [G0, G2, G3, ... G_{T-1}]]
         last_index = T - 1
         G_tp1 = 0  # G_{t+1}
-        for i, r in enumerate(reversed(self.rewards[:-1])):
+        for i, r in enumerate(reversed(self.rewards)):
             # starting from {T-1}, counting down to to 0 (Given the episode started at 0 and ended at T-1)
             curr_index = last_index - i
             G_t = r + self.gamma * G_tp1
             discounted_rewards[curr_index] = G_t
             G_tp1 = G_t  # current G is the future G for the next iteration lol
-        return discounted_rewards
+        # print(discounted_rewards)
+        discounted_rewards_tensor = torch.Tensor(discounted_rewards).unsqueeze(dim=1)
+        # print(self.rewards)
+
+        return discounted_rewards_tensor
 
     def get_action(self, state):
         action_probs = self.policy_network(state.float())
@@ -71,14 +76,21 @@ class Reinforce:
         action_probs_tensor = model_outputs_tensor * chosen_actions_tensor
         # print(model_outputs_tensor)
         # print(action_probs_tensor)
-        return action_probs_tensor
+        action_probs_tensor_flattened = torch.sum(action_probs_tensor, dim=1).unsqueeze(1)
+        return action_probs_tensor_flattened
 
     def train(self):
-        action_probs = self.get_action_probs()
-
         self.optim.zero_grad()
+        discounted_rewards = self.calculate_G()
+        action_probs = self.get_action_probs()
+        log_action_probs = torch.log(action_probs)
+        # print(log_action_probs.shape, discounted_rewards.shape)
+        cross_entropy = log_action_probs*discounted_rewards
+        # print(log_action_probs, discounted_rewards)
+        # print(cross_entropy)
+        loss = -1*torch.sum(cross_entropy)
+        loss.backward()
         self.optim.step()
-        print("training")
         self.reset()
         pass
 
@@ -93,8 +105,7 @@ def main(episodes, exp_name):
     agent = Reinforce(n_states=states, n_actions=n_actions)
     warmup_ep = 0
     for ep in range(episodes):
-        s_curr = env.reset()
-        s_curr = np.reshape(s_curr, (1, states))
+        s_curr = np.reshape(env.reset(), (1, states))
         s_curr = s_curr.astype(np.float32)
         done = False
         score = 0
@@ -134,15 +145,17 @@ def env_with_render(agent):
     done = False
     env = gym.make('CartPole-v1')
     score = 0
-    s_curr = env.reset()
+    states = env.observation_space.shape[0]  # shape returns a tuple
+    s_curr = np.reshape(env.reset(), (1, states))
     while True:
         if done:
             score = 0
-            s_curr = env.reset()
+            s_curr = np.reshape(env.reset(), (1, states))
         env.render()
         s_curr_tensor = torch.from_numpy(s_curr)
-        a_curr = agent.get_action(s_curr_tensor, test=True)
+        a_curr, _ = agent.get_action(s_curr_tensor)
         s_next, r, done, _ = env.step(a_curr)
+        s_next = np.reshape(s_next, (1, states))
         s_curr = s_next
         score += r
         print(score)
@@ -151,7 +164,7 @@ def env_with_render(agent):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="PG_REINFORCE_pt", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=200, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=1300, help="number of episodes to run")
     args = vars(ap.parse_args())
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)
