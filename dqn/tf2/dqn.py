@@ -39,7 +39,7 @@ class DQN:
         model.compile(loss="mse", optimizer=Adam(lr=self.lr))
         return model
 
-    def get_action(self, state, test = False):
+    def get_action(self, state, test=False):
         # e-greedy decision making
         if not test:
             decision = np.random.rand()
@@ -140,6 +140,7 @@ def main(episodes, exp_name):
                     tf.summary.scalar("score", score, ep)
     return agent
 
+
 def env_with_render(agent):
     done = False
     env = gym.make('CartPole-v1')
@@ -157,6 +158,7 @@ def env_with_render(agent):
         s_curr = s_next
         score += r
         print(score)
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

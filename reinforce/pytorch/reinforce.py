@@ -7,7 +7,7 @@ import gym
 import numpy as np
 import torch
 import tensorflow as tf
-from torch.nn import Module, Linear, ReLU, Sequential
+from torch.nn import Module, Linear, ReLU, Sequential, Softmax
 from torch.optim import Adam
 
 
@@ -16,7 +16,7 @@ class Network(Module):
         super(Network, self).__init__()
         self.lin1 = Sequential(Linear(in_features=n_states, out_features=16), ReLU())
         self.lin2 = Sequential(Linear(in_features=16, out_features=24), ReLU())
-        self.final_lin = Linear(in_features=24, out_features=n_actions)
+        self.final_lin = Sequential(Linear(in_features=24, out_features=n_actions), Softmax(dim=1))
 
     def forward(self, x):
         x = self.lin1(x)
@@ -32,7 +32,6 @@ class Reinforce:
         self.model_outputs = []  # logging PI(a|s) that was outputted at t
         self.rewards = []  # logging the rewards that go from t_i -> t_{i+1}
         self.n_actions = n_actions
-        self.states = n_states
         self.lr = 0.001
         self.batch_size = 64
         self.gamma = 0.99
@@ -60,16 +59,27 @@ class Reinforce:
         return discounted_rewards
 
     def get_action(self, state):
-        action_probs = self.policy_network(state)
-        action_probs_np = action_probs.detach().cpu().numpy()
-        return np.random.choice(self.n_actions, 1, p=action_probs_np), action_probs
+        action_probs = self.policy_network(state.float())
+        action_probs_np = action_probs.detach().cpu().numpy().squeeze()
+        return int(np.random.choice(self.n_actions, 1, p=action_probs_np)), action_probs
 
-    def train_on_batch(self, states, targets):
-        self.optim.zero_grad()
-        self.optim.step()
-        return
+    def get_action_probs(self):
+        model_outputs_tensor = torch.cat(self.model_outputs, 0)
+        index = torch.Tensor(self.actions).long()
+        chosen_actions_tensor = torch.zeros_like(model_outputs_tensor).long()
+        chosen_actions_tensor[torch.arange(chosen_actions_tensor.size(0)), index] = 1.
+        action_probs_tensor = model_outputs_tensor * chosen_actions_tensor
+        # print(model_outputs_tensor)
+        # print(action_probs_tensor)
+        return action_probs_tensor
 
     def train(self):
+        action_probs = self.get_action_probs()
+
+        self.optim.zero_grad()
+        self.optim.step()
+        print("training")
+        self.reset()
         pass
 
 
@@ -106,6 +116,7 @@ def main(episodes, exp_name):
 
             score += r
 
+            s_next = np.reshape(s_next, (1, states))
             s_curr = s_next
 
             if done:
