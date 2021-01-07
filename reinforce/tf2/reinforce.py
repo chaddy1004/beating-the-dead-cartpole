@@ -32,7 +32,6 @@ class Reinforce:
         x = Activation("relu")(x)
         q = Dense(self.n_actions, kernel_initializer='he_uniform', kernel_regularizer="l2")(x)
         model = Model(state, q)
-        model.compile(loss="mse", optimizer=Adam(lr=self.lr))
         return model
 
     def calculate_G(self):
@@ -50,10 +49,11 @@ class Reinforce:
 
     def get_action(self, state):
         action_probs = self.policy_network(state)
-        action_probs_np = action_probs.detach().cpu().numpy()
-        return np.random.choice(self.n_actions, 1, p=action_probs_np)
+        return np.random.choice(self.n_actions, 1, p=action_probs)
 
     def train(self):
+        with tf.GradientTape() as tape:
+            
         pass
 
 
