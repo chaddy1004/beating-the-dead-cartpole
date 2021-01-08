@@ -49,7 +49,7 @@ class Reinforce:
 
     def get_action(self, state):
         action_probs = self.policy_network(state)
-        return np.random.choice(self.n_actions, 1, p=action_probs)
+        return np.random.choice(self.n_actions, 1, p=action_probs), action_probs
 
     def train(self):
         with tf.GradientTape() as tape:
@@ -72,32 +72,18 @@ def main(episodes, exp_name):
         s_curr = s_curr.astype(np.float32)
         done = False
         score = 0
-        agent.update_weights()  # update weight every time an episode ends
         while not done:
             # if len(agent.experience_replay) == agent.replay_size:
             #     env.render()
-            s_curr_tensor = torch.from_numpy(s_curr)
-            a_curr = agent.get_action(s_curr_tensor)
+            a_curr, model_output = agent.get_action(s_curr)
             s_next, r, done, _ = env.step(a_curr)
-            s_next_tensor = torch.from_numpy(s_next)
             s_next = np.reshape(s_next, (1, states))
             r = r if not done or r > 499 else -100
-            sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
 
-            sample.s_curr = s_curr_tensor
-            sample.a_curr = a_curr
-            sample.reward = r
-            sample.s_next = s_next_tensor
-            sample.done = done
-
-            if len(agent.experience_replay) < agent.replay_size:
-                agent.experience_replay.append(sample)
-                s_curr = s_next
-                continue
-            else:
-                agent.experience_replay.append(sample)
-                x_batch = random.sample(agent.experience_replay, agent.batch_size)
-                agent.train(x_batch)
+            agent.states.append(s_curr)
+            agent.actions.append(a_curr)
+            agent.rewards.append(r)
+            agent.model_outputs.append(model_output)
 
             score += r
 
