@@ -5,7 +5,7 @@ import os
 import random
 import tensorflow as tf
 from collections import namedtuple, deque
-from tensorflow.keras.layers import Dense, Input, Activation
+from tensorflow.keras.layers import Dense, Input, Activation, Softmax
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
@@ -30,8 +30,9 @@ class Reinforce:
         x = Activation("relu")(x)
         x = Dense(24, kernel_initializer='he_uniform')(x)
         x = Activation("relu")(x)
-        q = Dense(self.n_actions, kernel_initializer='he_uniform', kernel_regularizer="l2")(x)
-        model = Model(state, q)
+        x = Dense(self.n_actions, kernel_initializer='he_uniform', kernel_regularizer="l2")(x)
+        prob = Softmax()(x)
+        model = Model(state, prob)
         return model
 
     def calculate_G(self):
@@ -49,11 +50,26 @@ class Reinforce:
 
     def get_action(self, state):
         action_probs = self.policy_network(state)
-        return np.random.choice(self.n_actions, 1, p=action_probs), action_probs
+        action_probs_squeeze = tf.squeeze(action_probs).numpy()
+        action_probs_squeeze /= action_probs_squeeze.sum()  # normalize
+        return np.random.choice(self.n_actions, 1, p=action_probs_squeeze), action_probs
+
+    def get_action_probs(self):
+        model_outputs_tensor = torch.cat(self.model_outputs, 0)
+        index = torch.Tensor(self.actions).long()
+        chosen_actions_tensor = torch.zeros_like(model_outputs_tensor).long()
+        chosen_actions_tensor[torch.arange(chosen_actions_tensor.size(0)), index] = 1.
+        action_probs_tensor = model_outputs_tensor * chosen_actions_tensor
+        # print(model_outputs_tensor)
+        # print(action_probs_tensor)
+        action_probs_tensor_flattened = torch.sum(action_probs_tensor, dim=1).unsqueeze(1)
+        return action_probs_tensor_flattened
 
     def train(self):
         with tf.GradientTape() as tape:
-            
+            discounted_rewards = self.calculate_G()
+            action_probs = self.get_action_probs()
+
         pass
 
 
