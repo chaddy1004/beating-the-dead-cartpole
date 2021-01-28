@@ -48,7 +48,7 @@ class Reinforce:
 
     def calculate_G(self):
         T = len(self.rewards)
-        discounted_rewards = [0 for _ in range(T)]  # [G0, G2, G3, ... G_{T-1}]]
+        discounted_rewards = [0 for _ in range(T)]  # [G0, G1, G2, G3, ... G_{T-1}]]
         last_index = T - 1
         G_tp1 = 0  # G_{t+1}
         for i, r in enumerate(reversed(self.rewards)):
@@ -60,7 +60,6 @@ class Reinforce:
         # print(discounted_rewards)
         discounted_rewards_tensor = torch.Tensor(discounted_rewards).unsqueeze(dim=1)
         # print(self.rewards)
-
         return discounted_rewards_tensor
 
     def get_action(self, state):
@@ -85,10 +84,10 @@ class Reinforce:
         action_probs = self.get_action_probs()
         log_action_probs = torch.log(action_probs)
         # print(log_action_probs.shape, discounted_rewards.shape)
-        cross_entropy = log_action_probs*discounted_rewards
+        cross_entropy = log_action_probs * discounted_rewards
         # print(log_action_probs, discounted_rewards)
         # print(cross_entropy)
-        loss = -1*torch.sum(cross_entropy)
+        loss = -1 * torch.sum(cross_entropy)
         loss.backward()
         self.optim.step()
         self.reset()
