@@ -10,6 +10,10 @@ import tensorflow as tf
 from torch.nn import Module, Linear, ReLU, Sequential
 from torch.optim import Adam
 
+torch.manual_seed(19971124)
+np.random.seed(42)
+random.seed(101)
+
 sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
 
 mse_loss_function = torch.nn.MSELoss()
@@ -186,7 +190,7 @@ def env_with_render(agent):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="DQN_pt", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=200, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=300, help="number of episodes to run")
     args = vars(ap.parse_args())
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)

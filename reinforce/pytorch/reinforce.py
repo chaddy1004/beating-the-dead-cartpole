@@ -11,6 +11,10 @@ from torch.nn import Module, Linear, ReLU, Sequential, Softmax
 from torch.nn import functional as F
 from torch.optim import Adam
 
+torch.manual_seed(19971124)
+np.random.seed(42)
+random.seed(101)
+
 
 class Network(Module):
     def __init__(self, n_states, n_actions):
