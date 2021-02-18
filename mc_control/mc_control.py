@@ -4,11 +4,16 @@ import numpy as np
 
 import itertools
 
+import random
+from collections import namedtuple
+
+random.seed(19971124)
+
 
 class Agent:
 
-    def __init__(self):
-        n_bins = 5
+    def __init__(self, gamma, n_bins, n_iterations, env):
+        self.n_iterations = n_iterations
         # reference from https://github.com/openai/gym/blob/8a721ace460cbaf8c3e6c03c12d06c616fd6e1e8/gym/envs/classic_control/cartpole.py#L51
         self._state_bins = [
             # Cart Position
@@ -21,12 +26,15 @@ class Agent:
             self._discretize(lb=-2.0, ub=2.0, n_bins=n_bins)
         ]
 
-        self.n_states = n_bins * len(self._state_bins)
+        self.n_states = n_bins ** len(self._state_bins)
         self.n_actions = 2
         self.q_table = np.ones((self.n_states, self.n_actions)) * 0.5
+        self.c = np.zeros((self.n_states, self.n_actions))
+        self.gamma = gamma
 
         self.state_to_idx = {}
         self.init_states()
+        self.env = env
 
     def init_states(self):
         possible_states = list(
@@ -62,3 +70,66 @@ class Agent:
         array = np.asarray(array)
         idx = (np.abs(array - value)).argmin()
         return array[idx]
+
+    # def calculate_G(self):
+    #     T = len(self.rewards)
+    #     discounted_rewards = [0 for _ in range(T)]  # [G0, G1, G2, G3, ... G_{T-1}]]
+    #     last_index = T - 1
+    #     G_tp1 = 0  # G_{t+1}
+    #     for i, r in enumerate(reversed(self.rewards)):
+    #         # starting from {T-1}, counting down to to 0 (Given the episode started at 0 and ended at T-1)
+    #         curr_index = last_index - i
+    #         G_t = r + self.gamma * G_tp1
+    #         discounted_rewards[curr_index] = G_t
+    #         G_tp1 = G_t  # current G is the future G for the next iteration lol
+    #     # print(discounted_rewards)
+    #     # print(self.rewards)
+    #     return discounted_rewards
+
+    def generate_episodes(self, policy):
+        done = False
+        n_actions = self.env.action_space.n
+        episode = []
+
+        Sample = namedtuple('Sample', ['s', 'a', 'r', 's_next', 'done'])
+        s_curr = env.reset()
+        while not done:
+            # if len(agent.experience_replay) == agent.replay_size:
+            #     env.render()
+            action = np.random.choice(n_actions, 1, p=policy)
+            s_next, r, done, _ = env.step(int(action))
+            r = r if not done or r > 10001 else - 100
+            sample = Sample(s=s_curr, a=int(action), r=r, s_next=s_next, done=done)
+            episode.append(sample)
+            s_curr = s_next
+        return episode
+
+    def mc_control(self):
+        for i in range(self.n_iterations):
+            prob_value = random.uniform(0, 1)
+            b = [prob_value, 1 - prob_value]
+            episode = self.generate_episodes(policy=b)
+            print("N EPISODE", len(episode))
+            # last_index = len(episode) - 1
+            G_tp1 = 0  # G_{t+1}
+            W = 1
+            for i, step in enumerate(reversed(episode)):
+                s_curr, a, r, s_next, done = step.s, step.a, step.r, step.s_next, step.done
+                G_t = r + self.gamma * G_tp1
+                # curr_index = last_index - i
+                s_curr_discrete = self.get_discrete_state(s_curr)
+                self.c[s_curr_discrete][a] = self.c[s_curr_discrete][a] + W
+                self.q_table[s_curr_discrete][a] = self.q_table[s_curr_discrete][a] + (W / self.c[s_curr_discrete][a]) * (
+                            G_t - self.q_table[s_curr_discrete][a])
+                pi_st = np.argmax(self.q_table[s_curr_discrete][a])
+                if a != pi_st:
+                    break
+                W = W / b[a]
+
+
+
+
+if __name__ == '__main__':
+    env = gym.make("CartPole-v0")
+    agent = Agent(gamma=0.9, n_bins=20, n_iterations=10000000, env=env)
+    agent.mc_control()
