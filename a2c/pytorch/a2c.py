@@ -18,29 +18,6 @@ random.seed(101)
 mse_loss_function = torch.nn.MSELoss()
 
 
-import random
-class AgentRandom():
-    def __init__(self):
-        self._actions = [0,1,2,3] # 4 states
-
-    def choose_action(self):
-        return random.choice(self._actions)
-
-class AgentRandom():
-    def __init__(self):
-        self._actions = [0, 1, 2, 3]  # 4 states
-
-    def choose_action(self):
-        return random.choice(self._actions)
-
-
-
-
-
-
-
-
-
 class Actor(Module):
     def __init__(self, n_states, n_actions):
         super(Actor, self).__init__()
@@ -84,7 +61,7 @@ class A2C:
         self.actor = Actor(n_states=n_states, n_actions=n_actions)
         self.critic = Critic(n_states=n_states)
         self.optim_actor = Adam(params=self.actor.parameters(), lr=self.lr)
-        self.optim_critic = Adam(params=self.critic.parameters(), lr=self.lr*5)
+        self.optim_critic = Adam(params=self.critic.parameters(), lr=self.lr * 5)
 
     def reset(self):
         self.states = []
@@ -132,7 +109,7 @@ class A2C:
         next_states_tensor = torch.cat(self.states_next, dim=0)
         with torch.no_grad():
             target = self.gamma * self.critic(next_states_tensor) + rewards_tensor
-        # since value at terminal state is zero, R_T + gamma*V(s_T) == R_T
+            # since value at terminal state is zero, R_T + gamma*V(s_T) == R_T
             target[-1] = rewards_tensor[-1]
         loss = mse_loss_function(predict, target.detach())
 
@@ -169,7 +146,6 @@ def main(episodes, exp_name):
         s_curr = np.reshape(env.reset(), (1, states))
         s_curr = s_curr.astype(np.float32)
 
-
         done = False
         score = 0
 
@@ -181,7 +157,7 @@ def main(episodes, exp_name):
             s_next, r, done, _ = env.step(a_curr)
             s_next = np.reshape(s_next, (1, states)).astype(np.float32)
             s_next_tensor = torch.from_numpy(s_next)
-            r = r if not done or r > 499 else -100
+            r = r if not done or score >= 499 else -100
 
             agent.states.append(s_curr_tensor)
             agent.states_next.append(s_next_tensor)
@@ -189,7 +165,6 @@ def main(episodes, exp_name):
             agent.rewards.append(r)
             agent.model_outputs.append(model_output)
             score += r
-
 
             s_curr = s_next
 
@@ -199,7 +174,6 @@ def main(episodes, exp_name):
                 agent.train_actor()
                 agent.train_critic()
                 agent.reset()
-
 
                 with writer.as_default():
                     tf.summary.scalar("reward", r, ep)
@@ -235,13 +209,10 @@ if __name__ == "__main__":
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)
 
-
 gym.envs.register(
     id='FrozenLakeNotSlippery-v0',
     entry_point='gym.envs.toy_text:FrozenLakeEnv',
-    kwargs={'map_name' : '4x4', 'is_slippery': False},
+    kwargs={'map_name': '4x4', 'is_slippery': False},
     max_episode_steps=100,
     reward_threshold=0.74
 )
-
-
