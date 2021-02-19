@@ -121,7 +121,7 @@ def main(episodes, exp_name):
             s_next, r, done, _ = env.step(a_curr)
             # s_next_tensor = torch.from_numpy(s_next)
             # s_next = np.reshape(s_next, (1, states))
-            r = r if not done or r > 499 else -100
+            r = r if not done or score >= 499 else -100
 
             agent.states.append(s_curr)
             agent.actions.append(a_curr)
@@ -167,7 +167,7 @@ def env_with_render(agent):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="PG_REINFORCE_pt", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=1300, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=1400, help="number of episodes to run")
     args = vars(ap.parse_args())
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)

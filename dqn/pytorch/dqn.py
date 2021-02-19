@@ -137,7 +137,7 @@ def main(episodes, exp_name):
             s_next, r, done, _ = env.step(a_curr)
             s_next_tensor = torch.from_numpy(s_next)
             s_next = np.reshape(s_next, (1, states))
-            r = r if not done or r > 499 else -100
+            r = r if not done or score >= 499 else -100
             sample = namedtuple('sample', ['s_curr', 'a_curr', 'reward', 's_next', 'done'])
 
             sample.s_curr = s_curr_tensor

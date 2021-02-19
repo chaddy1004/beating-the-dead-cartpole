@@ -94,7 +94,7 @@ def main(episodes, exp_name):
             a_curr, model_output = agent.get_action(s_curr)
             s_next, r, done, _ = env.step(a_curr)
             s_next = np.reshape(s_next, (1, states))
-            r = r if not done or r > 499 else -100
+            r = r if not done or score >= 499 else -100
 
             agent.states.append(s_curr)
             agent.actions.append(a_curr)
