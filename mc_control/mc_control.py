@@ -19,7 +19,7 @@ class Agent:
             # Cart Position
             self._discretize(lb=-2.4, ub=2.4, n_bins=n_bins),
             # Cart Velocity
-            self._discretize(lb=-10.0, ub=10.0, n_bins=n_bins),
+            self._discretize(lb=-30.0, ub=30.0, n_bins=n_bins),
             # Pole Angle
             self._discretize(lb=-0.5, ub=0.5, n_bins=n_bins),
             # Pole Angular Velocity
@@ -71,78 +71,68 @@ class Agent:
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    # def calculate_G(self):
-    #     T = len(self.rewards)
-    #     discounted_rewards = [0 for _ in range(T)]  # [G0, G1, G2, G3, ... G_{T-1}]]
-    #     last_index = T - 1
-    #     G_tp1 = 0  # G_{t+1}
-    #     for i, r in enumerate(reversed(self.rewards)):
-    #         # starting from {T-1}, counting down to to 0 (Given the episode started at 0 and ended at T-1)
-    #         curr_index = last_index - i
-    #         G_t = r + self.gamma * G_tp1
-    #         discounted_rewards[curr_index] = G_t
-    #         G_tp1 = G_t  # current G is the future G for the next iteration lol
-    #     # print(discounted_rewards)
-    #     # print(self.rewards)
-    #     return discounted_rewards
-
     def generate_episodes(self, iteration):
         done = False
         n_actions = self.env.action_space.n
         episode = []
 
-        Sample = namedtuple('Sample', ['s', 'a', 'r', 's_next', 'done'])
+        Sample = namedtuple('Sample', ['s', 'a', 'b_a_s', 'r', 's_next', 'done'])
         s_curr = env.reset()
+        score = 0
         while not done:
-            # if len(agent.experience_replay) == agent.replay_size:
-            #     env.render()
             # action = np.random.choice(n_actions, 1, p=policy)
-            if iteration < self.n_iterations//2:
+            if iteration < self.n_iterations // 8:
                 epsilon = 0.1
+            elif self.n_iterations // 8 < iteration < self.n_iterations // 4:
+                epsilon = 0.05
             else:
                 epsilon = 0.001
-            random_sampled = random.uniform(0,1)
-            # print(epsilon)
+            random_sampled = random.uniform(0, 1)
             if random_sampled < epsilon:
+                action_prob = epsilon
                 prob_value = random.uniform(0, 1)
                 if prob_value < 0.5:
                     action = 0
                 else:
                     action = 1
             else:
+                action_prob = 1 - epsilon
                 action = np.argmax(self.q_table[self.get_discrete_state(s_curr)])
+            # action = int(np.random.choice(n_actions, 1, policy))
+            # action_prob = policy[action]
             s_next, r, done, _ = env.step(int(action))
-            r = r if not done or r > 10001 else - 100
-            sample = Sample(s=s_curr, a=int(action), r=r, s_next=s_next, done=done)
+            r = r if not done or r >= 199 else - 100
+
+            sample = Sample(s=s_curr, a=int(action), b_a_s=action_prob, r=r, s_next=s_next, done=done)
             episode.append(sample)
+
+            score += r
             s_curr = s_next
         return episode
 
     def mc_control(self):
         for i in range(self.n_iterations):
-            prob_value = random.uniform(0, 1)
-            b = [prob_value, 1 - prob_value]
-            # print("b", b)
+            _b = random.uniform(0,1)
+            b = [_b, 1-_b]
             episode = self.generate_episodes(iteration=i)
-            # print("N EPISODE", len(episode))
-            # last_index = len(episode) - 1
+            # episode = self.generate_episodes(policy = b, iteration=None)
             G_tp1 = 0  # G_{t+1}
             W = 1
             for step in reversed(episode):
-                s_curr, a, r, s_next, done = step.s, step.a, step.r, step.s_next, step.done
+                s_curr, a, b_a_s, r, s_next, done = step.s, step.a, step.b_a_s, step.r, step.s_next, step.done
                 G_t = r + self.gamma * G_tp1
                 # curr_index = last_index - i
                 s_curr_discrete = self.get_discrete_state(s_curr)
                 self.c[s_curr_discrete][a] = self.c[s_curr_discrete][a] + W
-                self.q_table[s_curr_discrete][a] = self.q_table[s_curr_discrete][a] + (W / self.c[s_curr_discrete][a]) * (
-                            G_t - self.q_table[s_curr_discrete][a])
+                self.q_table[s_curr_discrete][a] = self.q_table[s_curr_discrete][a] + (
+                        W / self.c[s_curr_discrete][a]) * (
+                                                           G_t - self.q_table[s_curr_discrete][a])
                 pi_st = np.argmax(self.q_table[s_curr_discrete])
+                G_tp1 = G_t
                 if a != pi_st:
                     # print("asdf", a, pi_st)
                     break
-                W = W / b[a]
-                # print("W", W)
-                G_tp1 = G_t
+                W = W / b_a_s
 
             done = False
             n_actions = self.env.action_space.n
@@ -155,17 +145,14 @@ class Agent:
                 s_curr_discrete = self.get_discrete_state(s_curr)
                 action = np.argmax(self.q_table[s_curr_discrete])
                 s_next, r, done, _ = env.step(int(action))
-                r = r if not done or r > 10001 else - 100
+                r = r if not done or score >= 199 else - 100
                 score += r
                 s_curr = s_next
-            score = score if score >= 10000 else score + 100
+            score = score if score == 200 else score + 100
             print(f"Iteration {i}: score = {score}")
-
-
-
 
 
 if __name__ == '__main__':
     env = gym.make("CartPole-v0")
-    agent = Agent(gamma=0.99, n_bins=70, n_iterations=10000000, env=env)
+    agent = Agent(gamma=1.0, n_bins=10, n_iterations=50000, env=env)
     agent.mc_control()
