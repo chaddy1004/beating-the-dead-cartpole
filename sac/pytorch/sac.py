@@ -54,7 +54,7 @@ class SAC_discrete:
         self.experience_replay = deque(maxlen=self.replay_size)
         self.n_actions = n_actions
         self.n_states = n_states
-        self.lr = 0.001
+        self.lr = 0.0003
         self.batch_size = 64
         self.gamma = 0.99
         self.actor = Actor(n_states=n_states, n_actions=n_actions)
@@ -63,6 +63,7 @@ class SAC_discrete:
         self.optim_actor = Adam(params=self.actor.parameters(), lr=self.lr)
         self.optim_critic = Adam(params=self.critic.parameters(), lr=self.lr)
         self.H = 0.98 * (-np.log(1 / self.n_actions))
+        self.Tau = 0.5
         self.alpha = Parameter(torch.tensor(0.5))
         self.optim_alpha = Adam(params=[self.alpha], lr=self.lr)
 
@@ -79,10 +80,14 @@ class SAC_discrete:
         deltas_tensor = torch.Tensor(d_s).unsqueeze(dim=1)
         return deltas_tensor
 
-    def get_action(self, state):
+    def get_action(self, state, test=False):
         action_probs = self.actor(state.float())
         action_probs_np = action_probs.detach().cpu().numpy().squeeze()
-        return int(np.random.choice(self.n_actions, 1, p=action_probs_np)), action_probs
+        # print(action_probs_np)
+        if not test:
+            return int(np.random.choice(self.n_actions, 1, p=action_probs_np)), action_probs
+        else:
+            return int(np.argmax(self.n_actions))
 
     def get_action_probs(self):
         model_outputs_tensor = torch.cat(self.model_outputs, 0)
@@ -96,7 +101,7 @@ class SAC_discrete:
         return action_probs_tensor_flattened
 
     def get_v(self, state_batch):
-        action_probs = self.actor(state_batch).unsqueeze(-1)  # (batch, 4, 1)
+        action_probs = self.actor(state_batch).detach().unsqueeze(-1)  # (batch, 4, 1)
         action_probs_transpose = torch.transpose(action_probs, 1, -1)  # (batch, 1, 4)
 
         q_values = self.target_critic(state_batch).unsqueeze(-1)  # (batch, 4, 1)
@@ -137,7 +142,7 @@ class SAC_discrete:
         log_action_prob = torch.log(action_prob)
 
         action_prob = torch.transpose(action_prob, dim0=1, dim1=-1)
-        q_values = self.critic(s_currs).unsqueeze(-1)
+        q_values = self.critic(s_currs).detach().unsqueeze(-1)
         loss = torch.matmul(action_prob, (self.alpha * log_action_prob - q_values))
         loss = torch.mean(loss)
         loss.backward()
@@ -151,7 +156,7 @@ class SAC_discrete:
 
         action_prob = torch.transpose(action_prob, dim0=1, dim1=-1)
 
-        loss = torch.matmul(action_prob, (-1 * self.alpha * log_action_prob + self.H))
+        loss = torch.matmul(action_prob, (-1 * self.alpha * (log_action_prob + self.H)))
         loss = torch.mean(loss)
         loss.backward()
         self.optim_alpha.step()
@@ -177,10 +182,12 @@ class SAC_discrete:
         self.train_critic(s_currs, a_currs, r, s_nexts, dones)
         self.train_actor(s_currs, a_currs, r, s_nexts, dones)
         self.train_alpha(s_currs, a_currs, r, s_nexts, dones)
+        self.update_weights()
         return
 
     def update_weights(self):
-        self.target_critic.load_state_dict(self.critic.state_dict())
+        for target_param, local_param in zip(self.target_critic.parameters(), self.critic.parameters()):
+            target_param.data.copy_(self.Tau * local_param.data + (1.0 - self.Tau) * target_param.data)
 
 
 def main(episodes, exp_name):
@@ -234,7 +241,7 @@ def main(episodes, exp_name):
             if done:
                 score = score if score == 500 else score + 100
                 print(f"ep:{ep - warmup_ep}:################Goal Reached###################", score)
-                print(agent.alpha)
+                # print(agent.alpha)
                 with writer.as_default():
                     tf.summary.scalar("reward", r, ep)
                     tf.summary.scalar("score", score, ep)
@@ -253,7 +260,7 @@ def env_with_render(agent):
             s_curr = np.reshape(env.reset(), (1, states))
         env.render()
         s_curr_tensor = torch.from_numpy(s_curr)
-        a_curr, _ = agent.get_action(s_curr_tensor)
+        a_curr, _ = agent.get_action(s_curr_tensor, test=True)
         s_next, r, done, _ = env.step(a_curr)
         s_next = np.reshape(s_next, (1, states))
         s_curr = s_next
@@ -264,7 +271,7 @@ def env_with_render(agent):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="PG_REINFORCE_pt", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=2000, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=500, help="number of episodes to run")
     args = vars(ap.parse_args())
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)
