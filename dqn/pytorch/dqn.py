@@ -95,7 +95,8 @@ class DQN:
             s_nexts[batch] = x_batch[batch].s_next
             dones[batch] = x_batch[batch].done
 
-        target = self.main_network(s_currs)
+        target = self.main_network(
+            s_currs)  # this is so that the other values subtract to zero except the value that was changed to max
         predicts = self.target_network(s_nexts)
         max_qs = torch.max(input=predicts, dim=1).values  # find max along an axis
         max_qs = max_qs.unsqueeze(-1)
