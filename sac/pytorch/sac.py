@@ -87,7 +87,7 @@ class SAC_discrete:
         if not test:
             return int(np.random.choice(self.n_actions, 1, p=action_probs_np)), action_probs
         else:
-            return int(np.argmax(self.n_actions))
+            return int(np.argmax(action_probs_np)), action_probs
 
     def get_action_probs(self):
         model_outputs_tensor = torch.cat(self.model_outputs, 0)
@@ -256,6 +256,7 @@ def env_with_render(agent):
     s_curr = np.reshape(env.reset(), (1, states))
     while True:
         if done:
+            print(score)
             score = 0
             s_curr = np.reshape(env.reset(), (1, states))
         env.render()
@@ -265,13 +266,12 @@ def env_with_render(agent):
         s_next = np.reshape(s_next, (1, states))
         s_curr = s_next
         score += r
-        print(score)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp_name", type=str, default="PG_REINFORCE_pt", help="exp_name")
-    ap.add_argument("--episodes", type=int, default=500, help="number of episodes to run")
+    ap.add_argument("--episodes", type=int, default=460, help="number of episodes to run")
     args = vars(ap.parse_args())
     trained_agent = main(episodes=args["episodes"], exp_name=args["exp_name"])
     env_with_render(agent=trained_agent)
