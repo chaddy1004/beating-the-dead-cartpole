@@ -1,5 +1,4 @@
 import gym
-
 import numpy as np
 
 import itertools
@@ -7,7 +6,13 @@ import itertools
 import random
 from collections import namedtuple
 
-random.seed(19971124)
+import seaborn as sns
+from matplotlib import pyplot as plt
+import pandas as pd
+
+random.seed(a=19971124)
+np.random.seed(seed=19940513)
+sns.set_theme(style="darkgrid")
 
 
 class Agent:
@@ -35,6 +40,8 @@ class Agent:
         self.state_to_idx = {}
         self.init_states()
         self.env = env
+
+        self.test_scores = []
 
     def init_states(self):
         possible_states = list(
@@ -73,7 +80,6 @@ class Agent:
 
     def generate_episodes(self, iteration):
         done = False
-        n_actions = self.env.action_space.n
         episode = []
 
         Sample = namedtuple('Sample', ['s', 'a', 'b_a_s', 'r', 's_next', 'done'])
@@ -89,39 +95,38 @@ class Agent:
                 epsilon = 0.001
             random_sampled = random.uniform(0, 1)
             if random_sampled < epsilon:
-                action_prob = epsilon
+                action_prob = epsilon / 2
                 prob_value = random.uniform(0, 1)
                 if prob_value < 0.5:
                     action = 0
                 else:
                     action = 1
             else:
-                action_prob = 1 - epsilon
+                # greedy action selection
+                action_prob = (1 - epsilon)
                 action = np.argmax(self.q_table[self.get_discrete_state(s_curr)])
-            # action = int(np.random.choice(n_actions, 1, policy))
-            # action_prob = policy[action]
             s_next, r, done, _ = env.step(int(action))
+
+            # reward of -100 (punishment) if the pole falls before reaching the maximum score
             r = r if not done or r >= 199 else - 100
 
             sample = Sample(s=s_curr, a=int(action), b_a_s=action_prob, r=r, s_next=s_next, done=done)
             episode.append(sample)
 
+            # score is reflective of how much reward the agent received
             score += r
             s_curr = s_next
+
         return episode
 
     def mc_control(self):
         for i in range(self.n_iterations):
-            _b = random.uniform(0,1)
-            b = [_b, 1-_b]
             episode = self.generate_episodes(iteration=i)
-            # episode = self.generate_episodes(policy = b, iteration=None)
             G_tp1 = 0  # G_{t+1}
             W = 1
             for step in reversed(episode):
                 s_curr, a, b_a_s, r, s_next, done = step.s, step.a, step.b_a_s, step.r, step.s_next, step.done
                 G_t = r + self.gamma * G_tp1
-                # curr_index = last_index - i
                 s_curr_discrete = self.get_discrete_state(s_curr)
                 self.c[s_curr_discrete][a] = self.c[s_curr_discrete][a] + W
                 self.q_table[s_curr_discrete][a] = self.q_table[s_curr_discrete][a] + (
@@ -130,13 +135,10 @@ class Agent:
                 pi_st = np.argmax(self.q_table[s_curr_discrete])
                 G_tp1 = G_t
                 if a != pi_st:
-                    # print("asdf", a, pi_st)
                     break
                 W = W / b_a_s
 
             done = False
-            n_actions = self.env.action_space.n
-            episode = []
             s_curr = env.reset()
             score = 0
             while not done:
@@ -149,10 +151,38 @@ class Agent:
                 score += r
                 s_curr = s_next
             score = score if score == 200 else score + 100
-            print(f"Iteration {i}: score = {score}")
+            self.test_scores.append(score)
+            if (i + 1) % 500 == 0:
+                print(f"Iteration {i}: score = {score}")
+
+    def generate_plot(self):
+        x_axis = [i for i in range(len(self.test_scores))]
+        d = {"iteration": x_axis, "scores": self.test_scores}
+        experiment = pd.DataFrame(data=d)
+        plot = sns.lineplot(data=experiment, x="iteration", y="scores")
+        plot.set_title("Score of Off Policy MC Control on Discretized Cartpole")
+        plot.figure.savefig("Score_vs_Iteration.png")
 
 
 if __name__ == '__main__':
     env = gym.make("CartPole-v0")
-    agent = Agent(gamma=1.0, n_bins=10, n_iterations=50000, env=env)
-    agent.mc_control()
+    scores = []
+    n_iterations = 5000
+    n_trials = 10
+    for i in range(n_trials):
+        agent = Agent(gamma=1, n_bins=10, n_iterations=n_iterations, env=env)
+        agent.mc_control()
+        scores += agent.test_scores
+
+    x_axis = [i for i in range(n_iterations)] * n_trials
+    trials = []
+    for i in range(n_trials):
+        trials += [i for _ in range(n_iterations)]
+
+    d = {"Iteration": x_axis, "Trial": trials}
+    experiments = pd.DataFrame(data=d)
+
+    experiments.insert(2, f"Score", scores, False)
+    plot = sns.lineplot(data=experiments, x="Iteration", y="Score")
+    plot.set_title("Score of Off Policy MC Control on Discretized Cartpole")
+    plot.figure.savefig(f"Score_vs_Iteration_{n_iterations}_{n_trials}.png")
