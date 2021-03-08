@@ -110,22 +110,11 @@ class Agent:
                 a_next = agent.policy(s_next_discrete)
 
                 q_curr = self.q_table[s_curr_discrete, a_curr]
-                # finding the expected value of q by taking expectaion over all possible actions
-                # compared to sarsa, where just the next action was taken to find the q value
-                expected_q_next = 0
-                for i in range(self.n_actions):
-                    if i == np.argmax(self.q_table[s_next_discrete]):
-                        p = 1 - self.epsilon + (self.epsilon / self.n_actions)
-                    else:
-                        p = self.epsilon / self.n_actions
-                    expected_q_next += p * self.q_table[s_next, i]
-
                 done = int(done)
-                # print(r)
-                # print(done)
-                # print(r + (1-done)*(self.gamma * q_next))
-                self.q_table[s_curr_discrete, a_curr] = q_curr + self.lr * (
-                            r + (1 - done) * (self.gamma * expected_q_next) - q_curr)
+                # obtaining the target q value from the action sampled from current policy
+                q_next = self.q_table[s_next_discrete, a_next]
+
+                self.q_table[s_curr_discrete, a_curr] = q_curr + self.lr * (r + (1 - done) * (self.gamma * q_next) - q_curr)
 
                 s_curr = s_next
                 a_curr = a_next
