@@ -155,14 +155,6 @@ class Agent:
             if (i + 1) % 500 == 0:
                 print(f"Iteration {i}: score = {score}")
 
-    def generate_plot(self):
-        x_axis = [i for i in range(len(self.test_scores))]
-        d = {"iteration": x_axis, "scores": self.test_scores}
-        experiment = pd.DataFrame(data=d)
-        plot = sns.lineplot(data=experiment, x="iteration", y="scores")
-        plot.set_title("Score of Off Policy MC Control on Discretized Cartpole")
-        plot.figure.savefig("Score_vs_Iteration.png")
-
 
 if __name__ == '__main__':
     env = gym.make("CartPole-v0")
