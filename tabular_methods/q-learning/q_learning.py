@@ -114,9 +114,6 @@ class Agent:
                 q_next = np.max(self.q_table[s_next_discrete])
 
                 done = int(done)
-                # print(r)
-                # print(done)
-                # print(r + (1-done)*(self.gamma * q_next))
                 self.q_table[s_curr_discrete, a_curr] = q_curr + self.lr * (
                             r + (1 - done) * (self.gamma * q_next) - q_curr)
 
