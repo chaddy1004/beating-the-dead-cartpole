@@ -91,7 +91,7 @@ class Agent:
 
     def sarsa(self):
         for ep in range(self.n_iterations):
-            s_curr = env.reset()
+            s_curr = self.env.reset()
             a_curr = agent.policy(self.get_discrete_state(s_curr))
             done = False
             score = 0

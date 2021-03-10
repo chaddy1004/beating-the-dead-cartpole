@@ -83,7 +83,7 @@ class Agent:
         episode = []
 
         Sample = namedtuple('Sample', ['s', 'a', 'b_a_s', 'r', 's_next', 'done'])
-        s_curr = env.reset()
+        s_curr = self.env.reset()
         score = 0
         while not done:
             # action = np.random.choice(n_actions, 1, p=policy)
