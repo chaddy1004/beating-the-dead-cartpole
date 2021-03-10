@@ -97,7 +97,7 @@ class Agent:
             score = 0
             while not done:
                 # env.render()
-                s_next, r, done, _ = env.step(a_curr)
+                s_next, r, done, _ = self.env.step(a_curr)
                 r = r if not done or score >= 199 else - 100
 
                 score += r

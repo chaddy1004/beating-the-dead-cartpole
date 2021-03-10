@@ -105,7 +105,7 @@ class Agent:
                 # greedy action selection
                 action_prob = (1 - epsilon)
                 action = np.argmax(self.q_table[self.get_discrete_state(s_curr)])
-            s_next, r, done, _ = env.step(int(action))
+            s_next, r, done, _ = self.env.step(int(action))
 
             # reward of -100 (punishment) if the pole falls before reaching the maximum score
             r = r if not done or r >= 199 else - 100
@@ -139,14 +139,14 @@ class Agent:
                 W = W / b_a_s
 
             done = False
-            s_curr = env.reset()
+            s_curr = self.env.reset()
             score = 0
             while not done:
                 # if len(agent.experience_replay) == agent.replay_size:
                 #     env.render()
                 s_curr_discrete = self.get_discrete_state(s_curr)
                 action = np.argmax(self.q_table[s_curr_discrete])
-                s_next, r, done, _ = env.step(int(action))
+                s_next, r, done, _ = self.env.step(int(action))
                 r = r if not done or score >= 199 else - 100
                 score += r
                 s_curr = s_next
