@@ -92,7 +92,7 @@ class Agent:
     def sarsa(self):
         for ep in range(self.n_iterations):
             s_curr = self.env.reset()
-            a_curr = agent.policy(self.get_discrete_state(s_curr))
+            a_curr = self.policy(self.get_discrete_state(s_curr))
             done = False
             score = 0
             while not done:
@@ -107,7 +107,7 @@ class Agent:
                     # print("St################Goal Reached###################", score)
                 s_curr_discrete = self.get_discrete_state(s_curr)
                 s_next_discrete = self.get_discrete_state(s_next)
-                a_next = agent.policy(s_next_discrete)
+                a_next = self.policy(s_next_discrete)
 
                 q_curr = self.q_table[s_curr_discrete, a_curr]
                 # finding the expected value of q by taking expectaion over all possible actions
