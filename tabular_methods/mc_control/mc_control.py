@@ -159,7 +159,7 @@ class Agent:
 if __name__ == '__main__':
     env = gym.make("CartPole-v0")
     scores = []
-    n_iterations = 5000
+    n_iterations = 2000
     n_trials = 10
     for i in range(n_trials):
         agent = Agent(gamma=1, n_bins=10, n_iterations=n_iterations, env=env)
