@@ -117,7 +117,7 @@ def env_with_render(agent):
             score = 0
             s_curr = env.reset()
         env.render()
-        s_curr = np.reshape(s_curr, (1, sn_states))
+        s_curr = np.reshape(s_curr, (1, n_states))
         a_curr = agent.get_action(s_curr, test=True)
         s_next, r, done, _ = env.step(a_curr)
         s_curr = s_next
